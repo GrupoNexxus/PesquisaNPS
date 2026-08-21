@@ -149,6 +149,8 @@
   .badge.concluido{background:var(--green-light); color:var(--green);}
   .badge.retornar{background:var(--purple-light); color:var(--purple);}
   .badge.nao_atendeu{background:var(--red-light); color:var(--red);}
+  .badge.sem_sucesso{background:var(--red-light); color:var(--red);}
+  .badge.recusou{background:#EDE7D8; color:#8A6D1D;}
 
   .empty{
     padding:40px;
@@ -298,6 +300,32 @@
   }
   .tel-row .tel-remove:hover{color:var(--red);}
 
+  .tel-copy{
+    font-size:11px;
+    font-weight:700;
+    color:var(--purple);
+    background:var(--purple-light);
+    border:none;
+    border-radius:8px;
+    padding:5px 9px;
+    margin-left:8px;
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .tel-copy:hover{opacity:0.85;}
+
+  .copy-icon-btn{
+    border:none;
+    background:none;
+    cursor:pointer;
+    color:var(--muted);
+    font-size:13px;
+    padding:2px 4px;
+    margin-left:4px;
+    border-radius:6px;
+  }
+  .copy-icon-btn:hover{color:var(--purple); background:var(--purple-light);}
+
   .hist-item{
     display:flex;
     justify-content:space-between;
@@ -435,6 +463,8 @@
       <div class="filter-chip" data-status="a_ligar">A ligar</div>
       <div class="filter-chip" data-status="retornar">Retornar</div>
       <div class="filter-chip" data-status="nao_atendeu">Não atendeu</div>
+      <div class="filter-chip" data-status="sem_sucesso">Sem sucesso</div>
+      <div class="filter-chip" data-status="recusou">Recusou</div>
       <div class="filter-chip" data-status="concluido">Concluído</div>
     </div>
     <div class="card">
@@ -543,12 +573,23 @@
 
     <div class="dash-row">
       <div class="card panel">
-        <h3>Principal motivo da nota</h3>
+        <h3>Motivos da nota</h3>
         <div id="motivo-breakdown"></div>
       </div>
       <div class="card panel">
         <h3>Avaliação do suporte</h3>
         <div id="suporte-breakdown"></div>
+      </div>
+    </div>
+
+    <div class="dash-row">
+      <div class="card panel">
+        <h3>Respostas por dia <span style="font-weight:400; color:var(--muted); font-size:12px;">— últimos 14 dias</span></h3>
+        <div id="respostas-por-dia"></div>
+      </div>
+      <div class="card panel">
+        <h3>Respostas por mês</h3>
+        <div id="respostas-por-mes"></div>
       </div>
     </div>
 
@@ -594,6 +635,8 @@
         <div class="pill" data-status="concluido">Respondeu a pesquisa</div>
         <div class="pill" data-status="retornar">Pedir para retornar</div>
         <div class="pill" data-status="nao_atendeu">Não atendeu</div>
+        <div class="pill" data-status="sem_sucesso">Ligação sem sucesso</div>
+        <div class="pill" data-status="recusou">Não quis responder a pesquisa</div>
       </div>
     </div>
 
@@ -611,7 +654,7 @@
         </div>
       </div>
       <div class="field">
-        <label>De 0 a 10, o quanto indicaria a Fortes para um amigo ou colega? <span style="color:var(--red);">*</span></label>
+        <label>De 0 a 10, o quanto indicaria a Fortes para um amigo ou colega de trabalho? <span style="color:var(--red);">*</span></label>
         <div class="nota-grid" id="f-nota">
           <div class="nota-pill" data-value="0">0</div>
           <div class="nota-pill" data-value="1">1</div>
@@ -627,17 +670,17 @@
         </div>
       </div>
       <div class="field">
-        <label>Qual o principal motivo dessa nota? <span style="color:var(--red);">*</span></label>
-        <select id="f-motivo">
-          <option value="">Selecione...</option>
-          <option>Bom relacionamento com empresa</option>
-          <option>Preços dos serviços</option>
-          <option>Produto (bom ou ruim)</option>
-          <option>Suporte (atendimento bom ou ruim)</option>
-        </select>
+        <label>E qual o principal motivo dessa nota? <span style="color:var(--red);">*</span> <span style="font-weight:400; color:var(--muted);">— pode marcar mais de um</span></label>
+        <div class="pill-options" id="f-motivo">
+          <div class="pill" data-value="Bom relacionamento com empresa">Bom relacionamento com empresa</div>
+          <div class="pill" data-value="Preços dos serviços">Preços dos serviços</div>
+          <div class="pill" data-value="Produto (bom ou ruim)">Produto (bom ou ruim)</div>
+          <div class="pill" data-value="Suporte (atendimento bom ou ruim)">Suporte (atendimento bom ou ruim)</div>
+        </div>
       </div>
       <div class="field">
-        <label>Como tem sido a experiência com o suporte técnico? <span style="color:var(--red);">*</span></label>
+        <label>Como tem sido sua experiência com o nosso suporte técnico?
+               Você classificaria como: <span style="color:var(--red);">*</span></label>
         <select id="f-suporte">
           <option value="">Selecione...</option>
           <option>Excelente</option>
@@ -648,8 +691,8 @@
         </select>
       </div>
       <div class="field">
-        <label>O que poderíamos mudar ou melhorar? <span style="color:var(--red);">*</span></label>
-        <textarea id="f-sugestao" placeholder="Resposta do cliente (opcional)"></textarea>
+        <label>Se você pudesse mudar ou melhorar algo no nosso atendimento ou serviço, o que seria?<span style="color:var(--red);">*</span></label>
+        <textarea id="f-sugestao" placeholder="Resposta do cliente"></textarea>
       </div>
     </div>
 
@@ -682,7 +725,7 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
 // URL do Web App do Google Apps Script (veja instruções no README).
 // Deixe em branco ("") pra desativar o envio automático pra planilha.
-const GOOGLE_SHEETS_WEBHOOK_URL = "";
+const GOOGLE_SHEETS_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbyBLy7loA1Fwss6OgIghp59ebCBXJH8ey-nSQ8RuWWzskcuieHyi3LKzXXrL7dF8j3J/exec";
 
 let clientes = [];
 let respostas = [];
@@ -693,6 +736,7 @@ let selectedCliente = null;
 let modalStatus = null;
 let modalIndicou = null;
 let modalNota = null;
+let modalMotivos = [];
 let db = null;
 let currentComentarioCat = "bons";
 let currentSearchRespostas = "";
@@ -711,6 +755,35 @@ function nomeComCodigo(c) {
   if (!c) return "";
   const nome = c.nome_fantasia || c.nome;
   return c.codigo ? `${c.codigo} · ${nome}` : nome;
+}
+
+function numeroParaDiscagem(numero) {
+  const digitos = (numero || "").replace(/\D/g, "");
+  if (!digitos) return "";
+  return digitos.startsWith("0") ? digitos : "0" + digitos;
+}
+
+async function copiarNumero(numero, btnEl) {
+  const formatado = numeroParaDiscagem(numero);
+  if (!formatado) return;
+  try {
+    await navigator.clipboard.writeText(formatado);
+  } catch (e) {
+    // fallback pra navegadores/ambientes sem permissão de clipboard
+    const temp = document.createElement("textarea");
+    temp.value = formatado;
+    temp.style.position = "fixed";
+    temp.style.opacity = "0";
+    document.body.appendChild(temp);
+    temp.select();
+    try { document.execCommand("copy"); } catch (e2) { console.warn("Não foi possível copiar:", e2); }
+    document.body.removeChild(temp);
+  }
+  if (btnEl) {
+    const original = btnEl.textContent;
+    btnEl.textContent = "Copiado!";
+    setTimeout(() => { btnEl.textContent = original; }, 1200);
+  }
 }
 
 // ---------- Navegação entre abas (sempre funciona, independente do banco) ----------
@@ -810,7 +883,9 @@ const STATUS_LABEL = {
   a_ligar: "A ligar",
   concluido: "Concluído",
   retornar: "Retornar",
-  nao_atendeu: "Não atendeu"
+  nao_atendeu: "Não atendeu",
+  sem_sucesso: "Ligação sem sucesso",
+  recusou: "Não quis responder"
 };
 
 function renderFila() {
@@ -838,11 +913,21 @@ function renderFila() {
     tr.innerHTML = `
       <td><strong>${escapeHtml(nomeComCodigo(c))}</strong></td>
       <td>${escapeHtml([c.municipio, c.uf].filter(Boolean).join("/"))}</td>
-      <td>${escapeHtml(melhorNumero(c))}</td>
+      <td>${escapeHtml(melhorNumero(c))}${melhorNumero(c) !== "—" ? '<button type="button" class="copy-icon-btn" title="Copiar número">⧉</button>' : ""}</td>
       <td><span class="badge ${c.status}">${STATUS_LABEL[c.status] || c.status}</span></td>
       <td style="text-align:center;">${c.tentativas || 0}</td>
       <td>${c.data_contato ? new Date(c.data_contato).toLocaleDateString("pt-BR") : "—"}</td>
     `;
+    const copyBtnFila = tr.querySelector(".copy-icon-btn");
+    if (copyBtnFila) {
+      copyBtnFila.addEventListener("click", (e) => {
+        e.stopPropagation();
+        copiarNumero(melhorNumero(c), null);
+        const original = copyBtnFila.textContent;
+        copyBtnFila.textContent = "✓";
+        setTimeout(() => { copyBtnFila.textContent = original; }, 1200);
+      });
+    }
     tr.addEventListener("click", () => openModal(c));
     tbody.appendChild(tr);
   });
@@ -894,11 +979,21 @@ function renderAgenda() {
     tr.innerHTML = `
       <td><strong>${escapeHtml(nomeComCodigo(c))}</strong></td>
       <td>${escapeHtml([c.municipio, c.uf].filter(Boolean).join("/"))}</td>
-      <td>${escapeHtml(melhorNumero(c))}</td>
+      <td>${escapeHtml(melhorNumero(c))}${melhorNumero(c) !== "—" ? '<button type="button" class="copy-icon-btn" title="Copiar número">⧉</button>' : ""}</td>
       <td>${c._dr.toLocaleDateString("pt-BR")} às ${c._dr.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</td>
       <td style="text-align:center;">${c.tentativas || 0}</td>
       <td><span class="badge ${SITUACAO_COLOR[c._situacao]}">${SITUACAO_LABEL[c._situacao]}</span></td>
     `;
+    const copyBtnAgenda = tr.querySelector(".copy-icon-btn");
+    if (copyBtnAgenda) {
+      copyBtnAgenda.addEventListener("click", (e) => {
+        e.stopPropagation();
+        copiarNumero(melhorNumero(c), null);
+        const original = copyBtnAgenda.textContent;
+        copyBtnAgenda.textContent = "✓";
+        setTimeout(() => { copyBtnAgenda.textContent = original; }, 1200);
+      });
+    }
     tr.addEventListener("click", () => openModal(c));
     tbody.appendChild(tr);
   });
@@ -941,7 +1036,7 @@ function renderRespostas() {
       <td>${new Date(r.data).toLocaleDateString("pt-BR")}</td>
       <td><span style="color:${notaColor}; font-weight:700;">${r.nota}</span></td>
       <td>${escapeHtml(r.indicou || "—")}</td>
-      <td>${escapeHtml(r.motivo || "—")}</td>
+      <td>${escapeHtml(Array.isArray(r.motivo) ? r.motivo.join(", ") : (r.motivo || "—"))}</td>
       <td>${escapeHtml(r.avaliacao_suporte || "—")}</td>
       <td>${escapeHtml(r.sugestao || "—")}</td>
     `;
@@ -967,7 +1062,7 @@ function renderComentarios(cat) {
   let list;
   if (cat === "bons") list = respostas.filter(r => r.nota >= 9);
   else if (cat === "ruins") list = respostas.filter(r => r.nota <= 6);
-  else list = respostas.filter(r => r.motivo === cat);
+  else list = respostas.filter(r => Array.isArray(r.motivo) && r.motivo.includes(cat));
 
   // só mostra quem realmente deixou algum comentário
   list = list.filter(r => r.sugestao && r.sugestao.trim() !== "");
@@ -1033,12 +1128,17 @@ function renderTelefonesUI() {
       </div>
       <div style="display:flex; align-items:center;">
         <div class="tel-check">${t.funcionou ? "✓" : ""}</div>
+        <button type="button" class="tel-copy">Copiar</button>
         <span class="tel-remove" data-i="${i}">remover</span>
       </div>
     `;
     row.querySelector(".tel-check").addEventListener("click", (e) => {
       e.stopPropagation();
       toggleTelefoneFuncionou(i);
+    });
+    row.querySelector(".tel-copy").addEventListener("click", (e) => {
+      e.stopPropagation();
+      copiarNumero(t.numero, e.currentTarget);
     });
     row.querySelector(".tel-remove").addEventListener("click", (e) => {
       e.stopPropagation();
@@ -1095,7 +1195,7 @@ function renderHistoricoModal(clienteId) {
 
 function openModal(cliente) {
   selectedCliente = cliente;
-  modalStatus = null; modalIndicou = null; modalNota = null;
+  modalStatus = null; modalIndicou = null; modalNota = null; modalMotivos = [];
 
   document.getElementById("modal-nome").textContent = nomeComCodigo(cliente);
   document.getElementById("modal-sub").textContent = [cliente.cnpj_cpf, melhorNumero(cliente)].filter(Boolean).join(" · ");
@@ -1105,7 +1205,6 @@ function openModal(cliente) {
   document.getElementById("bloco-pesquisa").classList.add("hidden");
   document.getElementById("bloco-retornar").classList.add("hidden");
   document.getElementById("f-nome-respondente").value = "";
-  document.getElementById("f-motivo").value = "";
   document.getElementById("f-suporte").value = "";
   document.getElementById("f-sugestao").value = "";
   document.getElementById("f-obs").value = "";
@@ -1149,6 +1248,19 @@ document.querySelectorAll("#f-indicou .pill").forEach(pill => {
   });
 });
 
+document.querySelectorAll("#f-motivo .pill").forEach(pill => {
+  pill.addEventListener("click", () => {
+    const val = pill.dataset.value;
+    if (modalMotivos.includes(val)) {
+      modalMotivos = modalMotivos.filter(m => m !== val);
+      pill.classList.remove("selected");
+    } else {
+      modalMotivos.push(val);
+      pill.classList.add("selected");
+    }
+  });
+});
+
 document.querySelectorAll(".nota-pill").forEach(pill => {
   pill.addEventListener("click", () => {
     document.querySelectorAll(".nota-pill").forEach(p => p.classList.remove("selected"));
@@ -1176,7 +1288,7 @@ document.getElementById("btn-salvar").addEventListener("click", async () => {
     if (!document.getElementById("f-nome-respondente").value.trim()) camposFaltando.push("Nome de quem respondeu");
     if (!modalIndicou) camposFaltando.push("Indicou a Fortes?");
     if (modalNota === null) camposFaltando.push("Nota de 0 a 10");
-    if (!document.getElementById("f-motivo").value) camposFaltando.push("Motivo da nota");
+    if (modalMotivos.length === 0) camposFaltando.push("Motivo da nota");
     if (!document.getElementById("f-suporte").value) camposFaltando.push("Avaliação do suporte");
     if (!document.getElementById("f-sugestao").value.trim()) camposFaltando.push("O que poderia melhorar");
 
@@ -1215,7 +1327,7 @@ document.getElementById("btn-salvar").addEventListener("click", async () => {
       nome_respondente: document.getElementById("f-nome-respondente").value || null,
       indicou: modalIndicou,
       nota: modalNota,
-      motivo: document.getElementById("f-motivo").value || null,
+      motivo: modalMotivos,
       avaliacao_suporte: document.getElementById("f-suporte").value || null,
       sugestao: document.getElementById("f-sugestao").value || null,
       obs_interna: document.getElementById("f-obs").value || null
@@ -1233,7 +1345,7 @@ document.getElementById("btn-salvar").addEventListener("click", async () => {
         nome_respondente: resposta.nome_respondente || "",
         indicou: resposta.indicou || "",
         nota: resposta.nota,
-        motivo: resposta.motivo || "",
+        motivo: Array.isArray(resposta.motivo) ? resposta.motivo.join("; ") : (resposta.motivo || ""),
         avaliacao_suporte: resposta.avaliacao_suporte || "",
         sugestao: resposta.sugestao || "",
         obs_interna: resposta.obs_interna || ""
@@ -1295,6 +1407,73 @@ function renderDashboard() {
 
   renderBreakdown("motivo-breakdown", "motivo");
   renderBreakdown("suporte-breakdown", "avaliacao_suporte");
+  renderRespostasPorDia();
+  renderRespostasPorMes();
+}
+
+function renderRespostasPorDia() {
+  const box = document.getElementById("respostas-por-dia");
+  const dias = [];
+  const hoje = new Date();
+  hoje.setHours(0, 0, 0, 0);
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date(hoje);
+    d.setDate(d.getDate() - i);
+    dias.push(d);
+  }
+  const counts = dias.map(d => {
+    const chave = d.toISOString().slice(0, 10);
+    return respostas.filter(r => (r.data || "").slice(0, 10) === chave).length;
+  });
+  const maxCount = Math.max(1, ...counts);
+
+  box.innerHTML = "";
+  dias.forEach((d, i) => {
+    const count = counts[i];
+    const pct = (count / maxCount) * 100;
+    const label = d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+    const row = document.createElement("div");
+    row.className = "bar-row";
+    row.innerHTML = `
+      <div class="bar-label" style="width:40px;">${label}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${pct}%; background:var(--purple);"></div></div>
+      <div class="bar-count">${count}</div>
+    `;
+    box.appendChild(row);
+  });
+}
+
+function renderRespostasPorMes() {
+  const box = document.getElementById("respostas-por-mes");
+  const meses = [];
+  const hoje = new Date();
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
+    meses.push(d);
+  }
+  const counts = meses.map(m => {
+    return respostas.filter(r => {
+      if (!r.data) return false;
+      const rd = new Date(r.data);
+      return rd.getFullYear() === m.getFullYear() && rd.getMonth() === m.getMonth();
+    }).length;
+  });
+  const maxCount = Math.max(1, ...counts);
+
+  box.innerHTML = "";
+  meses.forEach((m, i) => {
+    const count = counts[i];
+    const pct = (count / maxCount) * 100;
+    const label = m.toLocaleDateString("pt-BR", { month: "short", year: "2-digit" }).replace(".", "");
+    const row = document.createElement("div");
+    row.className = "bar-row";
+    row.innerHTML = `
+      <div class="bar-label" style="width:50px; text-transform:capitalize;">${label}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${pct}%; background:var(--green);"></div></div>
+      <div class="bar-count">${count}</div>
+    `;
+    box.appendChild(row);
+  });
 }
 
 function renderBreakdown(elId, field) {
@@ -1302,8 +1481,14 @@ function renderBreakdown(elId, field) {
   box.innerHTML = "";
   const counts = {};
   respostas.forEach(r => {
-    const v = r[field] || "Não informado";
-    counts[v] = (counts[v] || 0) + 1;
+    const v = r[field];
+    if (Array.isArray(v)) {
+      if (v.length === 0) { counts["Não informado"] = (counts["Não informado"] || 0) + 1; }
+      else v.forEach(item => { counts[item] = (counts[item] || 0) + 1; });
+    } else {
+      const label = v || "Não informado";
+      counts[label] = (counts[label] || 0) + 1;
+    }
   });
   const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
   if (entries.length === 0) {
