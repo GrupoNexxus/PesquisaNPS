@@ -151,6 +151,7 @@
   .badge.nao_atendeu{background:var(--red-light); color:var(--red);}
   .badge.sem_sucesso{background:var(--red-light); color:var(--red);}
   .badge.recusou{background:#EDE7D8; color:#8A6D1D;}
+  .badge.enviado_whatsapp{background:#E5F1FB; color:#1D6FA5;}
 
   .empty{
     padding:40px;
@@ -465,6 +466,7 @@
       <div class="filter-chip" data-status="nao_atendeu">Não atendeu</div>
       <div class="filter-chip" data-status="sem_sucesso">Sem sucesso</div>
       <div class="filter-chip" data-status="recusou">Recusou</div>
+      <div class="filter-chip" data-status="enviado_whatsapp">Enviado WhatsApp</div>
       <div class="filter-chip" data-status="concluido">Concluído</div>
     </div>
     <div class="card">
@@ -521,6 +523,7 @@
         <thead>
           <tr>
             <th>Cliente</th>
+            <th>Nome do respondente</th>
             <th>Data</th>
             <th>Nota</th>
             <th>Indicou</th>
@@ -637,6 +640,7 @@
         <div class="pill" data-status="nao_atendeu">Não atendeu</div>
         <div class="pill" data-status="sem_sucesso">Ligação sem sucesso</div>
         <div class="pill" data-status="recusou">Não quis responder a pesquisa</div>
+        <div class="pill" data-status="enviado_whatsapp">Pesquisa enviada por WhatsApp</div>
       </div>
     </div>
 
@@ -654,7 +658,7 @@
         </div>
       </div>
       <div class="field">
-        <label>De 0 a 10, o quanto indicaria a Fortes para um amigo ou colega de trabalho? <span style="color:var(--red);">*</span></label>
+        <label>De 0 a 10, o quanto indicaria a Fortes para um amigo ou colega? <span style="color:var(--red);">*</span></label>
         <div class="nota-grid" id="f-nota">
           <div class="nota-pill" data-value="0">0</div>
           <div class="nota-pill" data-value="1">1</div>
@@ -670,7 +674,7 @@
         </div>
       </div>
       <div class="field">
-        <label>E qual o principal motivo dessa nota? <span style="color:var(--red);">*</span> <span style="font-weight:400; color:var(--muted);">— pode marcar mais de um</span></label>
+        <label>Qual o motivo dessa nota? <span style="color:var(--red);">*</span> <span style="font-weight:400; color:var(--muted);">— pode marcar mais de um</span></label>
         <div class="pill-options" id="f-motivo">
           <div class="pill" data-value="Bom relacionamento com empresa">Bom relacionamento com empresa</div>
           <div class="pill" data-value="Preços dos serviços">Preços dos serviços</div>
@@ -679,8 +683,7 @@
         </div>
       </div>
       <div class="field">
-        <label>Como tem sido sua experiência com o nosso suporte técnico?
-               Você classificaria como: <span style="color:var(--red);">*</span></label>
+        <label>Como tem sido a experiência com o suporte técnico? <span style="color:var(--red);">*</span></label>
         <select id="f-suporte">
           <option value="">Selecione...</option>
           <option>Excelente</option>
@@ -691,8 +694,8 @@
         </select>
       </div>
       <div class="field">
-        <label>Se você pudesse mudar ou melhorar algo no nosso atendimento ou serviço, o que seria?<span style="color:var(--red);">*</span></label>
-        <textarea id="f-sugestao" placeholder="Resposta do cliente"></textarea>
+        <label>O que poderíamos mudar ou melhorar? <span style="color:var(--red);">*</span></label>
+        <textarea id="f-sugestao" placeholder="Resposta do cliente (opcional)"></textarea>
       </div>
     </div>
 
@@ -885,7 +888,8 @@ const STATUS_LABEL = {
   retornar: "Retornar",
   nao_atendeu: "Não atendeu",
   sem_sucesso: "Ligação sem sucesso",
-  recusou: "Não quis responder"
+  recusou: "Não quis responder",
+  enviado_whatsapp: "Enviado por WhatsApp"
 };
 
 function renderFila() {
@@ -1033,6 +1037,7 @@ function renderRespostas() {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td><strong>${escapeHtml(nomeCliente)}</strong></td>
+      <td>${escapeHtml(r.nome_respondente || "—")}</td>
       <td>${new Date(r.data).toLocaleDateString("pt-BR")}</td>
       <td><span style="color:${notaColor}; font-weight:700;">${r.nota}</span></td>
       <td>${escapeHtml(r.indicou || "—")}</td>
