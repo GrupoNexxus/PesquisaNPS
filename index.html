@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
   :root{
     --bg:#f5f4f0;
@@ -459,7 +460,7 @@
   <!-- ===== FILA DE LIGAÇÃO ===== -->
   <section id="view-fila" class="view active">
     <div class="toolbar">
-      <input type="text" id="search" placeholder="Buscar cliente por nome...">
+      <input type="text" id="search" placeholder="Buscar por nome ou código...">
       <div class="filter-chip active" data-status="todos">Todos</div>
       <div class="filter-chip" data-status="a_ligar">A ligar</div>
       <div class="filter-chip" data-status="retornar">Retornar</div>
@@ -517,6 +518,7 @@
   <section id="view-respostas" class="view">
     <div class="toolbar">
       <input type="text" id="search-respostas" placeholder="Buscar por cliente...">
+      <button type="button" class="btn btn-ghost" id="btn-exportar-xls" style="border:1px solid var(--border); padding:9px 16px; white-space:nowrap; margin-left:auto;">⬇ Exportar Excel</button>
     </div>
     <div class="card">
       <table>
@@ -658,7 +660,7 @@
         </div>
       </div>
       <div class="field">
-        <label>De 0 a 10, o quanto indicaria a Fortes para um amigo ou colega de trabalho? <span style="color:var(--red);">*</span></label>
+        <label>De 0 a 10, o quanto indicaria a Fortes para um amigo ou colega? <span style="color:var(--red);">*</span></label>
         <div class="nota-grid" id="f-nota">
           <div class="nota-pill" data-value="0">0</div>
           <div class="nota-pill" data-value="1">1</div>
@@ -683,8 +685,7 @@
         </div>
       </div>
       <div class="field">
-        <label>Como tem sido sua experiência com o nosso suporte técnico?
-                Você classificaria como: <span style="color:var(--red);">*</span></label>
+        <label>Como tem sido a experiência com o suporte técnico? <span style="color:var(--red);">*</span></label>
         <select id="f-suporte">
           <option value="">Selecione...</option>
           <option>Excelente</option>
@@ -695,7 +696,7 @@
         </select>
       </div>
       <div class="field">
-        <label>Se você pudesse mudar ou melhorar algo no nosso atendimento ou serviço, o que seria?<span style="color:var(--red);">*</span></label>
+        <label>O que poderíamos mudar ou melhorar? <span style="color:var(--red);">*</span></label>
         <textarea id="f-sugestao" placeholder="Resposta do cliente (opcional)"></textarea>
       </div>
     </div>
@@ -896,7 +897,10 @@ const STATUS_LABEL = {
 function renderFila() {
   let list = clientes.filter(c => {
     const matchStatus = currentStatusFilter === "todos" || c.status === currentStatusFilter;
-    const matchSearch = !currentSearch || (c.nome || "").toLowerCase().includes(currentSearch);
+    const matchSearch = !currentSearch
+      || (c.nome || "").toLowerCase().includes(currentSearch)
+      || (c.nome_fantasia || "").toLowerCase().includes(currentSearch)
+      || String(c.codigo || "").toLowerCase().includes(currentSearch);
     return matchStatus && matchSearch;
   });
 
@@ -1050,7 +1054,65 @@ function renderRespostas() {
   });
 }
 
-// ---------- Comentários por categoria (dashboard) ----------
+// ---------- Exportar respostas para Excel ----------
+function exportarRespostasXLS() {
+  if (typeof XLSX === "undefined") {
+    alert("Não foi possível carregar a biblioteca de exportação. Verifique sua internet e recarregue a página.");
+    return;
+  }
+  if (respostas.length === 0) {
+    alert("Ainda não há respostas para exportar.");
+    return;
+  }
+
+  const clientesById = Object.fromEntries(clientes.map(c => [c.id, c]));
+
+  const linhas = [...respostas]
+    .sort((a, b) => new Date(b.data) - new Date(a.data))
+    .map(r => {
+      const cliente = clientesById[r.cliente_id];
+      const telFuncionou = cliente && Array.isArray(cliente.telefones) ? cliente.telefones.find(t => t.funcionou) : null;
+      return {
+        "Data da Resposta": r.data ? new Date(r.data).toLocaleString("pt-BR") : "",
+        "Código": cliente ? (cliente.codigo || "") : "",
+        "Cliente": cliente ? (cliente.nome_fantasia || cliente.nome) : "Cliente não encontrado",
+        "CNPJ/CPF": cliente ? (cliente.cnpj_cpf || "") : "",
+        "Telefone usado": telFuncionou ? telFuncionou.numero : "",
+        "Nome do respondente": r.nome_respondente || "",
+        "Indicou?": r.indicou || "",
+        "Nota": r.nota != null ? r.nota : "",
+        "Motivo": Array.isArray(r.motivo) ? r.motivo.join("; ") : (r.motivo || ""),
+        "Avaliação do suporte": r.avaliacao_suporte || "",
+        "Se você pudesse mudar ou melhorar algo no nosso atendimento ou serviço, o que seria?": r.sugestao || "",
+        "Observação interna": r.obs_interna || ""
+      };
+    });
+
+  const ws = XLSX.utils.json_to_sheet(linhas);
+  ws["!cols"] = [
+    { wch: 18 }, // Data da Resposta
+    { wch: 10 }, // Código
+    { wch: 34 }, // Cliente
+    { wch: 18 }, // CNPJ/CPF
+    { wch: 16 }, // Telefone usado
+    { wch: 24 }, // Nome do respondente
+    { wch: 10 }, // Indicou?
+    { wch: 6 },  // Nota
+    { wch: 45 }, // Motivo
+    { wch: 18 }, // Avaliação do suporte
+    { wch: 55 }, // pergunta de melhoria
+    { wch: 30 }  // Observação interna
+  ];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Respostas");
+
+  const hoje = new Date();
+  const dataArquivo = hoje.toISOString().slice(0, 10);
+  XLSX.writeFile(wb, `Respostas_NPS_${dataArquivo}.xlsx`);
+}
+
+document.getElementById("btn-exportar-xls").addEventListener("click", exportarRespostasXLS);
 document.querySelectorAll("#comentarios-tabs .pill").forEach(pill => {
   pill.addEventListener("click", () => {
     document.querySelectorAll("#comentarios-tabs .pill").forEach(p => p.classList.remove("selected"));
