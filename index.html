@@ -339,6 +339,21 @@
   .hist-item:last-child{border-bottom:none;}
   .hist-item .h-data{color:var(--muted);}
 
+  .dup-item{
+    padding:10px 12px;
+    border-radius:10px;
+    border:1px solid var(--border);
+    background:#fbfaf8;
+    margin-bottom:6px;
+    cursor:pointer;
+  }
+  .dup-item .d-nome{font-size:14px; font-weight:600;}
+  .dup-item .d-info{font-size:11px; color:var(--muted);}
+  .dup-item.selected{
+    border-color:var(--purple);
+    background:var(--purple-light);
+  }
+
   /* Modal */
   .overlay{
     display:none;
@@ -532,6 +547,7 @@
             <th>Motivo</th>
             <th>Suporte</th>
             <th>Comentário</th>
+            <th>Ações</th>
           </tr>
         </thead>
         <tbody id="respostas-body"></tbody>
@@ -717,6 +733,26 @@
     <div class="modal-actions">
       <button class="btn btn-ghost" id="btn-cancelar">Cancelar</button>
       <button class="btn btn-primary" id="btn-salvar">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL DE DUPLICAR RESPOSTA ===== -->
+<div class="overlay" id="overlay-dup">
+  <div class="modal" style="max-width:480px;">
+    <h2>Duplicar resposta</h2>
+    <div class="sub" id="dup-origem-sub"></div>
+
+    <div class="field">
+      <label>Aplicar essa mesma resposta para qual cliente?</label>
+      <input type="text" id="dup-search" placeholder="Buscar por nome ou código..." style="width:100%; padding:10px 12px; border-radius:10px; border:1px solid var(--border); font-family:'Inter',sans-serif; font-size:14px; background:#fbfaf8;">
+    </div>
+
+    <div id="dup-lista" style="max-height:260px; overflow-y:auto; margin-bottom:8px;"></div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="btn-dup-cancelar">Cancelar</button>
+      <button class="btn btn-primary" id="btn-dup-confirmar" disabled>Duplicar para o cliente selecionado</button>
     </div>
   </div>
 </div>
@@ -1049,7 +1085,12 @@ function renderRespostas() {
       <td>${escapeHtml(Array.isArray(r.motivo) ? r.motivo.join(", ") : (r.motivo || "—"))}</td>
       <td>${escapeHtml(r.avaliacao_suporte || "—")}</td>
       <td>${escapeHtml(r.sugestao || "—")}</td>
+      <td><button type="button" class="tel-copy dup-btn">Duplicar</button></td>
     `;
+    tr.querySelector(".dup-btn").addEventListener("click", (e) => {
+      e.stopPropagation();
+      abrirDuplicarResposta(r);
+    });
     tbody.appendChild(tr);
   });
 }
@@ -1113,6 +1154,139 @@ function exportarRespostasXLS() {
 }
 
 document.getElementById("btn-exportar-xls").addEventListener("click", exportarRespostasXLS);
+
+// ---------- Duplicar resposta para outro cliente ----------
+let duplicandoResposta = null;
+let dupClienteSelecionado = null;
+let dupSearch = "";
+
+function abrirDuplicarResposta(resposta) {
+  duplicandoResposta = resposta;
+  dupClienteSelecionado = null;
+  dupSearch = "";
+  document.getElementById("dup-search").value = "";
+
+  const clientesById = Object.fromEntries(clientes.map(c => [c.id, c]));
+  const origemCliente = clientesById[resposta.cliente_id];
+  document.getElementById("dup-origem-sub").textContent =
+    `Resposta de ${origemCliente ? nomeComCodigo(origemCliente) : "cliente não encontrado"} (nota ${resposta.nota}) será copiada para outro cliente.`;
+
+  document.getElementById("btn-dup-confirmar").disabled = true;
+  renderDupLista();
+  document.getElementById("overlay-dup").classList.add("active");
+}
+
+function renderDupLista() {
+  const box = document.getElementById("dup-lista");
+  const termo = dupSearch.toLowerCase();
+
+  let opcoes = clientes.filter(c => c.id !== duplicandoResposta.cliente_id);
+  if (termo) {
+    opcoes = opcoes.filter(c =>
+      (c.nome || "").toLowerCase().includes(termo)
+      || (c.nome_fantasia || "").toLowerCase().includes(termo)
+      || String(c.codigo || "").toLowerCase().includes(termo)
+    );
+  }
+  opcoes = opcoes.slice(0, 30);
+
+  box.innerHTML = "";
+  if (opcoes.length === 0) {
+    box.innerHTML = '<div class="empty" style="padding:16px;">Nenhum cliente encontrado.</div>';
+    return;
+  }
+
+  opcoes.forEach(c => {
+    const div = document.createElement("div");
+    div.className = "dup-item" + (dupClienteSelecionado && dupClienteSelecionado.id === c.id ? " selected" : "");
+    div.innerHTML = `
+      <div class="d-nome">${escapeHtml(nomeComCodigo(c))}</div>
+      <div class="d-info">${escapeHtml(c.cnpj_cpf || "")}${c.municipio ? " · " + escapeHtml(c.municipio) : ""}</div>
+    `;
+    div.addEventListener("click", () => {
+      dupClienteSelecionado = c;
+      document.getElementById("btn-dup-confirmar").disabled = false;
+      renderDupLista();
+    });
+    box.appendChild(div);
+  });
+}
+
+document.getElementById("dup-search").addEventListener("input", (e) => {
+  dupSearch = e.target.value;
+  renderDupLista();
+});
+
+document.getElementById("btn-dup-cancelar").addEventListener("click", () => {
+  document.getElementById("overlay-dup").classList.remove("active");
+});
+
+document.getElementById("btn-dup-confirmar").addEventListener("click", async () => {
+  if (!dupClienteSelecionado || !duplicandoResposta) return;
+  if (!db) { showError("Sem conexão com o banco de dados. Recarregue a página."); return; }
+
+  const btn = document.getElementById("btn-dup-confirmar");
+  btn.disabled = true;
+  btn.textContent = "Duplicando...";
+
+  const cliente = dupClienteSelecionado;
+  const origem = duplicandoResposta;
+
+  const novaResposta = {
+    cliente_id: cliente.id,
+    nome_respondente: origem.nome_respondente || null,
+    indicou: origem.indicou || null,
+    nota: origem.nota,
+    motivo: Array.isArray(origem.motivo) ? origem.motivo : [],
+    avaliacao_suporte: origem.avaliacao_suporte || null,
+    sugestao: origem.sugestao || null,
+    obs_interna: origem.obs_interna || null
+  };
+
+  const { error: respErr } = await db.from("respostas_nps").insert(novaResposta);
+  if (respErr) {
+    console.error(respErr);
+    alert("Erro ao duplicar a resposta: " + respErr.message);
+    btn.disabled = false;
+    btn.textContent = "Duplicar para o cliente selecionado";
+    return;
+  }
+
+  const updates = {
+    status: "concluido",
+    data_contato: new Date().toISOString(),
+    tentativas: (cliente.tentativas || 0) + 1
+  };
+  const { error: updErr } = await db.from("clientes").update(updates).eq("id", cliente.id);
+  if (updErr) console.error(updErr);
+
+  const { error: histErr } = await db.from("historico_contatos").insert({
+    cliente_id: cliente.id,
+    status: "concluido",
+    obs: "Resposta duplicada de outro CNPJ do mesmo grupo."
+  });
+  if (histErr) console.error(histErr);
+
+  const telFuncionou = Array.isArray(cliente.telefones) ? cliente.telefones.find(t => t.funcionou) : null;
+  syncToGoogleSheets({
+    data: new Date().toISOString(),
+    codigo: cliente.codigo || "",
+    razao_social: cliente.nome || "",
+    cnpj_cpf: cliente.cnpj_cpf || "",
+    telefone_usado: telFuncionou ? telFuncionou.numero : "",
+    nome_respondente: novaResposta.nome_respondente || "",
+    indicou: novaResposta.indicou || "",
+    nota: novaResposta.nota,
+    motivo: Array.isArray(novaResposta.motivo) ? novaResposta.motivo.join("; ") : "",
+    avaliacao_suporte: novaResposta.avaliacao_suporte || "",
+    sugestao: novaResposta.sugestao || "",
+    obs_interna: novaResposta.obs_interna || ""
+  });
+
+  btn.textContent = "Duplicar para o cliente selecionado";
+  document.getElementById("overlay-dup").classList.remove("active");
+  await loadData();
+});
 document.querySelectorAll("#comentarios-tabs .pill").forEach(pill => {
   pill.addEventListener("click", () => {
     document.querySelectorAll("#comentarios-tabs .pill").forEach(p => p.classList.remove("selected"));
